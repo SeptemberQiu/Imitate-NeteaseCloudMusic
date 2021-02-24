@@ -1,34 +1,35 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form, Input} from 'antd';
+import React, { useState, useRef, useEffect } from 'react';
+import { Modal, Button, Form, Input, Popover } from 'antd';
 import 'antd/dist/antd.css';
+import './login.css';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
-// const { Option } = Select;
 
-// const options = [
-//   {
-//     value: 'zhejiang',
-//     label: 'Zhejiang',
-//     children: [
-//       {
-//         value: 'hangzhou',
-//         label: 'Hangzhou',
-//         children: [
-//           {
-//             value: 'xihu',
-//             label: 'West Lake',
-//           },
-//         ],
-//       },
-//     ],
-//   },
-// ];
 
 const Login = () => {
-  
-  // const { Option } = Select;
+
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const avatarImage = useRef(null);
+  const loginText = useRef(null);
+
+  useEffect(() => {
+    let status = Cookies.get('userCookie');
+    let userAvatar = Cookies.get('userAvatar');
+    let userAvatarUrl;
+    if (userAvatar) {
+      userAvatarUrl = JSON.parse(userAvatar);
+    }
+    if (status) {
+      loginText.current.style.display = 'none';
+      avatarImage.current.style.display = '';
+      avatarImage.current.src = userAvatarUrl.avatar;
+    } else {
+      avatarImage.current.style.display = 'none';
+    }
+
+  });
 
   const showModal = () => {
     setIsModalVisible(true);
@@ -38,43 +39,81 @@ const Login = () => {
     setIsModalVisible(false);
   };
 
+
+
   const onFinish = (values) => {
-    console.log('Received values of form: ', values);
-
-    let result = axios.post('http://localhost:3000/login/cellphone', {
-      phone : values.phone,
-      password: values.password
+    // console.log('Received values of form: ', values);
+    axios.post('http://localhost:3000/login/cellphone', {
+      phone: values.phone,
+      password: values.password,
+      // md5_password: values.password 
     })
-    .then(function (response) {
-      console.log(response);
-    })
-    .catch(function (error) {
-      console.log(error);
-    });
+      .then(function (res) {
+        console.log(res);
+        if (res.status === 200 && res.data.code === 200) {
+          // let nickname = res.data.profile.nickname;
+          let avatar = res.data.profile.avatarUrl;
+          let cookie = res.data.cookie;
+          loginText.current.style.display = 'none';
+          avatarImage.current.style.display = '';
+          Cookies.set('userCookie', { cookie }, { expires: 7, path: '/' });
+          Cookies.set('userAvatar', { avatar }, { expires: 7 });
+          avatarImage.current.src = avatar;
+          setIsModalVisible(false);
+          this.props.history.push('/');
 
-    console.log(result);
-
-    setIsModalVisible(false);
+        } else {
+          console.log('失败');
+        }
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
   };
+
+
+  const loginOut = () => {
+    Cookies.remove("userCookie");
+    Cookies.remove("userAvatar");
+    // history.push('/');
+    this.props.history.push('/');
+  }
+
+
+  const content = (
+    <div style={{width:'160px'}}>
+      <ul className="functionArea">
+        <li><a href="">我的主页</a></li>
+        <li onClick={loginOut}><a href="">退出</a></li>
+      </ul>
+    </div>
+  );
 
   return (
     <>
-      <Button type="primary" onClick={showModal}>
-        登录
-      </Button>
+      <div >
+        <Button type="primary" onClick={showModal} ref={loginText}>
+          <span >登录</span>
+        </Button>
 
-      <Modal title="手机号登录" 
-            visible={isModalVisible} 
-            onCancel={handleCancel}
-            footer={null}
-            centered={true}
+        <Popover content={content} color={'rgb(60, 65, 68)'}>
+          <img ref={avatarImage} style={{ width: '30px', height: '30px', borderRadius: '50%', display: 'none' }} />
+        </Popover>
+      </div>
+
+      <Modal title="手机号登录"
+        visible={isModalVisible}
+        onCancel={handleCancel}
+        footer={null}
+        centered={true}
+        destroyOnClose={true}
       >
         <Form
           name="normal_login"
           // className="login-form"
-          initialValues={{remember: true}}
+          initialValues={{ remember: true }}
           onFinish={onFinish}
-          // style={{border:"1px solid red",marginLeft:"40px"}}
+        // style={{border:"1px solid red",marginLeft:"40px"}}
         >
           <Form.Item
             name="phone"
@@ -85,7 +124,7 @@ const Login = () => {
               },
             ]}
           >
-            <Input prefix={<UserOutlined className="site-form-item-icon" />} placeholder="Phone" style={{width:"50%"}}/>
+            <Input prefix={<UserOutlined className="site-form-item-icon" />} placeholder="Phone" style={{ width: "50%" }} />
             {/* <Input.Group compact>
               <Select defaultValue="+86">
                 <Option value="Zhejiang">Zhejiang</Option>
@@ -108,7 +147,7 @@ const Login = () => {
               prefix={<LockOutlined className="site-form-item-icon" />}
               type="password"
               placeholder="Password"
-              style={{width:"50%"}}
+              style={{ width: "50%" }}
             />
           </Form.Item>
 
@@ -123,7 +162,7 @@ const Login = () => {
           </Form.Item>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" className="login-form-button" style={{width: "50%"}}>
+            <Button type="primary" htmlType="submit" className="login-form-button" style={{ width: "50%" }}>
               登录
             </Button>
           </Form.Item>
