@@ -43,10 +43,21 @@ const Login = () => {
 
   const onFinish = (values) => {
     // console.log('Received values of form: ', values);
-    axios.post('http://localhost:3000/login/cellphone', {
-      phone: values.phone,
-      password: values.password,
-      // md5_password: values.password 
+    // axios.post('http://localhost:3000/login/cellphone', {
+    //   phone: values.phone,
+    //   password: values.password,
+    //   // md5_password: values.password 
+    // },
+    // {withCredentials: true,}
+    // )
+    axios({
+      method: 'post',
+      url: 'http://localhost:3000/login/cellphone',
+      data: {
+        phone: values.phone,
+        password: values.password,
+      },
+      withCredentials: true
     })
       .then(function (res) {
         console.log(res);
@@ -60,7 +71,7 @@ const Login = () => {
           Cookies.set('userAvatar', { avatar }, { expires: 7 });
           avatarImage.current.src = avatar;
           setIsModalVisible(false);
-          this.props.history.push('/');
+          // this.history.push('/');
 
         } else {
           console.log('失败');
@@ -75,16 +86,26 @@ const Login = () => {
   const loginOut = () => {
     Cookies.remove("userCookie");
     Cookies.remove("userAvatar");
-    // history.push('/');
     this.props.history.push('/');
+
+    // axios.get('http://localhost:3000/logout')
+    //   .then((res) => {
+    //     console.log('退出',res);
+    //   })
+    //   .catch((err) => {
+    //     console.log(err);
+    //   })
+
+
+    // this.props.history.push('/');
   }
 
 
   const content = (
-    <div style={{width:'160px'}}>
+    <div style={{ width: '160px' }}>
       <ul className="functionArea">
-        <li><a href="">我的主页</a></li>
-        <li onClick={loginOut}><a href="">退出</a></li>
+        <li><a href="/#">我的主页</a></li>
+        <li onClick={loginOut}><a href="/#">退出</a></li>
       </ul>
     </div>
   );
@@ -97,7 +118,7 @@ const Login = () => {
         </Button>
 
         <Popover content={content} color={'rgb(60, 65, 68)'}>
-          <img ref={avatarImage} style={{ width: '30px', height: '30px', borderRadius: '50%', display: 'none' }} />
+          <img ref={avatarImage} style={{ width: '30px', height: '30px', borderRadius: '50%', display: 'none' }} alt='头像' />
         </Popover>
       </div>
 
