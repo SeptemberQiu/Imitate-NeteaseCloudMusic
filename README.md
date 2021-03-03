@@ -5,12 +5,27 @@
 后端接口调用自：[NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi)
 
 # 二、功能说明
+
+## （一）底部播放条
+
 第一版底部播放器，使用写定的一首歌，具体功能实现参考自以下文章：
-1、[《react 实现可播放的进度条》](https://blog.csdn.net/sinat_39626276/article/details/81034385)
-2、[《H5  音频标签自定义样式修改以及添加播放控制事件》](https://www.cnblogs.com/Mr5GG/p/9076699.html)
+
+- [《react 实现可播放的进度条》](https://blog.csdn.net/sinat_39626276/article/details/81034385)
+- [《H5  音频标签自定义样式修改以及添加播放控制事件》](https://www.cnblogs.com/Mr5GG/p/9076699.html)
+
+第二版底部播放器，点击歌曲列表中任意一首歌的播放按钮进行播放；实现了展示歌曲图、歌手；
+
+# 三、进度
+
+增加：
+
+1. 点击首页某条歌曲“添加到播放列表”按钮，实现添加歌曲信息到“播放列表”；
+2. 点击底部播放条右侧“播放列表”展开播放列表中左侧`已添加歌曲列表`，完成点击对应歌曲实现播放；
+3. 清除歌曲列表功能；
+4. 增加样式、部分样式和逻辑的优化。
 
 
-# 三、开始
+# 四、开始
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

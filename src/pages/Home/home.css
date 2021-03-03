@@ -171,8 +171,37 @@
 .show-play-list{
   float: right;
   line-height: 36px;
+  cursor: pointer;
 }
 
 .show-play-list em{
   padding:0 10px;
+}
+
+.tip{
+  display: none;
+  position:absolute;
+  top:-60px;
+  width:152px;
+  height:49px;
+  background:#313131;
+  color:#DCDAD7;
+  text-align:center;
+  line-height:49px;
+  font-size:12px;
+}
+
+.song-line{
+  width: 553px;
+  height: 28px;
+  display: flex;
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
+.stack-fun{
+  font-size: 17px;
+  margin: 0 2px;
+  color: #9B9B9B;
+  cursor: pointer;
 }

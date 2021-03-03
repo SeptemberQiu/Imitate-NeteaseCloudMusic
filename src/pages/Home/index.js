@@ -3,7 +3,7 @@ import 'antd/dist/antd.css';
 import './home.css';
 import Nav from '../../component/Nav/index';
 import axios from 'axios';
-import { LeftCircleOutlined, RightCircleOutlined, PlayCircleOutlined, PauseCircleOutlined, PlusOutlined, FolderAddOutlined, CloseOutlined, CustomerServiceOutlined } from '@ant-design/icons';
+import { LeftCircleOutlined, RightCircleOutlined, PlayCircleOutlined, PauseCircleOutlined, PlusOutlined, FolderAddOutlined, CloseOutlined, CustomerServiceOutlined, DeleteOutlined, DownloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { getPlayMusicUrl } from '../utils/data-format';
 // eslint-disable-next-line
 import Cookies from 'js-cookie';
@@ -15,22 +15,15 @@ const Home = () => {
   // eslint-disable-next-line
   const [billboardList, setBillboardList] = useState([]);
   const [soarList, setSoarList] = useState([]);
-  // eslint-disable-next-line
-  const [playStatus, setPlayStatus] = useState(false); // 播放状态， true 播放中， false 暂停中
-  const [duration, setDuration] = useState('00:00');    // 音频的时长
+  const [duration, setDuration] = useState('00:00');        // 音频的时长
   const [playNowTime, setPlayNowTime] = useState('00:00');  // 当前的播放时间
   const [songName, setSongName] = useState('');
   const [songAvatar, setSongAvatar] = useState('asset/default_album.jpg');
   const [songArtist, setSongArtist] = useState('');
-  // eslint-disable-next-line
   const [songPlayStack, setSongPlayStack] = useState([]);
-  // const [artistId, setArtistId] = useState();
   const [songPlayListStatus, setSongPlayListStatus] = useState(true);
-
   // eslint-disable-next-line
-  const [url, setUrl] = useState();
-  // eslint-disable-next-line
-  const [percent, setPercent] = useState(0);
+  // const [percent, setPercent] = useState(0);
 
   const music = useRef(null);
   const playIcon = useRef(null);
@@ -40,6 +33,7 @@ const Home = () => {
   const playSlider = useRef(null);
   const playDot = useRef(null);
   const playList = useRef(null);
+  const tips = useRef(null);
 
   // const playBtn = useRef(null);
   // const addPlayListBtn = useRef(null);
@@ -47,7 +41,6 @@ const Home = () => {
 
   useEffect(() => {
     getSongList();
-
     // 获取榜单数据
     const getBillboardList = () => {
       axios.get('http://localhost:3000/toplist')
@@ -78,8 +71,6 @@ const Home = () => {
       });
   }
 
-
-
   // 获取飙升榜歌曲
   const getSoaringList = (soarId) => {
     axios.get(`http://localhost:3000/playlist/detail?id=${soarId}`)
@@ -95,18 +86,16 @@ const Home = () => {
   }
 
   const playMusic = () => {
-    setPlayStatus(true);
     music.current.play();
     playIcon.current.style.display = 'none';
     pauseIcon.current.style.display = '';
     music.current.addEventListener('timeupdate', updateProgress, false);
-    music.current.onended = () => {
-      alert("歌曲结束");
-    }
+    // music.current.onended = () => {
+    //   alert("歌曲结束");
+    // }
   }
 
   const pauseMusic = () => {
-    setPlayStatus(false);
     playIcon.current.style.display = '';
     pauseIcon.current.style.display = 'none';
     music.current.pause();
@@ -122,7 +111,7 @@ const Home = () => {
     setPlayNowTime(transTime(music.current.currentTime));
   }
 
-  // 计算时长
+  // 计算时长 （放入秒）
   const transTime = (time) => {
     let duration = parseInt(time, 10);
     let minute = parseInt(duration / 60, 10);
@@ -140,38 +129,80 @@ const Home = () => {
   }
 
   // 点击播放按钮
-  const playBtn = (item, e) => {
+  const playBtn = (item, e, type) => {
     e.preventDefault();
-    console.log(item);
-    axios.get(`http://localhost:3000/album?id=${item.al.id}`)
+    let albumId;
+    let songId;
+    let songName;
+    let songDuration;
+    switch(type){
+      case 1:
+        albumId = item.al.id;
+        songId = item.id;
+        songName = item.name;
+        songDuration = item.dt;
+        break;
+      case 2:
+        albumId = item.albumId;
+        songId = item.songId;
+        songName = item.songName;
+        songDuration = item.duration;
+        break;
+      default:
+        break;
+    }
+    
+    axios.get(`http://localhost:3000/album?id=${albumId}`)
       .then((res => {
         console.log(res);
         setSongAvatar(res.data.album.picUrl);
         setSongArtist(res.data.album.artist.name);
-        // setArtistId(res.data.album.artist.id);
       }))
       .catch((err => {
         console.log(err);
       }))
-
-
-    let songId = item.id;
-    setSongName(item.name);
-    setDuration(item.dt);
+    setSongName(songName);
+    setDuration(songDuration);
     music.current.src = getPlayMusicUrl(songId);
     music.current.play();
     playMusic();
   }
 
   // 点击添加到播放列表
-  const addPlayListBtn = (item, e) => {
-    // 需要专辑ID，歌曲ID， 歌曲时长dt，歌曲歌词
+  const addPlayListBtn = async (item, e) => {
+    // 需要专辑ID，歌曲ID， 歌曲时长dt，歌曲歌词，歌曲名称
     e.preventDefault();
-    console.log(item);
-  }
+    // console.log('添加',item);
+    let albumId = item.al.id;
+    let songName = item.name;
+    let songId = item.id;
+    let duration = transTime((Math.floor(item.dt/1000)));
+    let artistName = '';
+    await axios.get(`http://localhost:3000/album?id=${albumId}`)
+      .then((res => {
+        artistName = res.data.album.artist.name;
+      }))
+      .catch((err => {
+        console.log(err);
+      }))
+    let params = { "artist": artistName, "songName": songName, "songId": songId, "duration": duration , "albumId":albumId};
+    let songStack = songPlayStack;
+    songStack.push(params);
+    let result = [];
+    let results = [];
+    for (let i = 0; i < songStack.length; i++) {
+      if (!result.includes(songStack[i].songId)) {
+        result.push(songStack[i].songId);
+        results.push(songStack[i]);
+      }
+    }
+    setSongPlayStack(results);
+    tips.current.style.display = 'block';
+    playList.current.style.display = 'none';
 
-  // 点击收藏按钮
-  const likeBtn = () => {
+    setTimeout(() => {
+      tips.current.style.display = 'none';
+    }, 3000);
   }
 
   const onClosePlayList = () => {
@@ -189,6 +220,15 @@ const Home = () => {
     }
   }
 
+  const onCLearPlayList = (e) => {
+    e.preventDefault();
+    setSongPlayStack([]);
+  }
+
+  const onDeleteSong = (item) => {
+    console.log(item);
+  }
+
   return (
     <>
       <Nav />
@@ -204,6 +244,7 @@ const Home = () => {
 
           {/* 下载 */}
           <div className="download-pic" style={{ background: "url('asset/download.png') center", width: '25%', height: '285px', border: "1px solid black", position: 'relative' }}>
+            {/* eslint-disable-next-line */}
             <a href="/#" style={{ display: 'block', width: '214px', height: '56px', position: 'absolute', top: '184px', left: '12px' }}></a>
             <p style={{ color: 'rgb(160, 152, 139)', fontSize: '12px', textAlign: 'center', height: '45px', width: '100%', lineHeight: '45px', position: 'absolute', bottom: '0', left: '0', margin: '0' }}>PC 安卓 iPhone WP iPad Mac 六大客户端</p>
           </div>
@@ -280,10 +321,10 @@ const Home = () => {
                           </a>
 
                           <div className="oper" >
-                            <a href="/#" title="播放" style={{ color: '#797878', margin: '0 6px' }} onClick={(e) => playBtn(item, e)}><PlayCircleOutlined style={{ fontSize: '17px' }} /></a>
+                            <a href="/#" title="播放" style={{ color: '#797878', margin: '0 6px' }} onClick={(e) => playBtn(item, e, 1)}><PlayCircleOutlined style={{ fontSize: '17px' }} /></a>
                             {/* <a href="/#" title="播放" style={{color:'#797878',margin:'0 6px'}} onClick={playBtn}><PlayCircleOutlined style={{fontSize:'17px'}}/></a> */}
                             <a href="/#" title="添加到播放列表" style={{ color: '#999999' }} onClick={(e) => addPlayListBtn(item, e)}><PlusOutlined style={{ fontSize: '17px' }} /></a>
-                            <a href="/#" title="收藏" style={{ color: '#949391', marginLeft: '6px' }} onClick={likeBtn}><FolderAddOutlined style={{ fontSize: '17px' }} /></a>
+                            <a href="/#" title="收藏" style={{ color: '#949391', marginLeft: '6px' }}><FolderAddOutlined style={{ fontSize: '17px' }} /></a>
                           </div>
 
                         </li>
@@ -446,18 +487,16 @@ const Home = () => {
           <div className="play-bar-right" style={{ width: '113px', height: '36px', backgroundColor: 'white', position: 'absolute', right: '0' }}>
 
             <span className="play-song-stack" style={{ width: '60px', height: '25px' }}>
-              <span className="tip" style={{ display: 'none' }}>已添加到播放列表</span>
-              <a href="/#" title="播放列表" className="show-play-list" onClick={onShowPlayList}>
+              <span className="tip" ref={tips}>已添加到播放列表</span>
+              <div className="show-play-list" onClick={onShowPlayList}>
                 <CustomerServiceOutlined />
-                <em>5</em>
-
-                {/* <img alt="" style={{ position: '' }} src='asset/playbar.png' style={{ width: '60px', height: '25px' }} /> */}
-              </a>
+                <em>{songPlayStack.length}</em>
+              </div>
             </span>
 
           </div>
 
-          {/* 播放列表 */}
+          {/* 弹出 播放列表 */}
           <div className="list" ref={playList}>
 
             <div className="listhd">
@@ -465,12 +504,12 @@ const Home = () => {
               <div className="list-hd-left">
 
                 <h4 style={{ color: '#BDBAB6', marginLeft: '30px', lineHeight: '40px' }}>
-                  播放列表
+                  播放列表({songPlayStack.length})
                 </h4>
 
                 <div className="list-hd-left-two">
                   <a href="/#">收藏全部</a>
-                  <a href="/#">清除</a>
+                  <a href="/#" onClick={(e) =>onCLearPlayList(e)}>清除</a>
                 </div>
               </div>
 
@@ -485,11 +524,42 @@ const Home = () => {
             </div>
 
             <div className="song-play-list">
-              <div className="listbd">
+              {/* <div className="listbd"> */}
                 <div className="list-left">
+                  <ul>
+                    {
+                      songPlayStack.map((item, index) => {
+                        // console.log(item);
+                        return (
+                          <li className="song-line" key={item.songId}>
+                            {/* 播放图标 */}
+                            <div style={{ width: '20px', height: "28px" }}></div>
+                            <div style={{ width: "256px", height: '28px', lineHeight: '28px',color:'#DCDAD7',fontSize:'12px'}} onClick={(e) =>playBtn(item, e, 2)}>
+                              {item.songName}
+                            </div>
+                            <div style={{ width: '88px', height: '28px', lineHeight: '28px' }}>
+                              {/* #E2E2E2 */} 
+                              <i title="删除" className="stack-fun"><DeleteOutlined onClick={() => onDeleteSong(item)}/></i>
+                              <i title="下载" className="stack-fun"><DownloadOutlined /></i>
+                              <i title="分享" className="stack-fun"><ShareAltOutlined /></i>
+                              <i title="收藏" className="stack-fun"><FolderAddOutlined /></i>
+                            </div>
 
+                            <div style={{ width: '70px', height: '28px', marginLeft: '10px', lineHeight: '28px' }}>
+                              <span title={item.artist}>
+                                <a href="/#" style={{ fontSize: '12px', color: '#969087' }}>{item.artist}</a>
+                              </span>
+                            </div>
+                            <div style={{ width: '35px', height: '28px', lineHeight: '28px', marginLeft: '10px',color: '#969087' }}>
+                              {item.duration}
+                            </div>
+                          </li>
+                        )
+                      })
+                    }
+                  </ul>
                 </div>
-              </div>
+              {/* </div> */}
 
               <div className="list-bd-right">
                 <div className="list-lyric">
