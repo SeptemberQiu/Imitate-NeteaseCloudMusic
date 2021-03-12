@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import 'antd/dist/antd.css';
 import './home.css';
 import Nav from '../../component/Nav/index';
+import Login from '../../component/Login/index';
 import axios from 'axios';
 import { LeftCircleOutlined, RightCircleOutlined, PlayCircleOutlined, PauseCircleOutlined, PlusOutlined, FolderAddOutlined, CloseOutlined, CustomerServiceOutlined, DeleteOutlined, DownloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { getPlayMusicUrl } from '../utils/data-format';
@@ -22,6 +23,9 @@ const Home = () => {
   const [songArtist, setSongArtist] = useState('');
   const [songPlayStack, setSongPlayStack] = useState([]);
   const [songPlayListStatus, setSongPlayListStatus] = useState(true);
+  const [songIndex, setSongIndex] = useState();
+  const [drag, setDrag] = useState(false);
+  const [processCanMove, setProcessCanMove] = useState(false);
   // eslint-disable-next-line
   // const [percent, setPercent] = useState(0);
 
@@ -47,7 +51,7 @@ const Home = () => {
         .then((res) => {
           // console.log(res);
           let result = res.data.list.slice(0, 3);
-          console.log(result);
+          // console.log(result);
           setBillboardList(result);
           getSoaringList(result[0].id);
         })
@@ -93,6 +97,9 @@ const Home = () => {
     // music.current.onended = () => {
     //   alert("歌曲结束");
     // }
+
+    // 监听播放完成事件
+    music.current.addEventListener('ended', audioEnded, false);
   }
 
   const pauseMusic = () => {
@@ -130,12 +137,18 @@ const Home = () => {
 
   // 点击播放按钮
   const playBtn = (item, e, type) => {
+    // console.log('点击播放aaaa', item);
     e.preventDefault();
     let albumId;
     let songId;
     let songName;
     let songDuration;
-    switch(type){
+    if (type === 1) {
+      // 点击播放时，也要把歌曲信息推入到 播放列表中
+      addPlayListBtn(item, e);
+    }
+
+    switch (type) {
       case 1:
         albumId = item.al.id;
         songId = item.id;
@@ -151,10 +164,10 @@ const Home = () => {
       default:
         break;
     }
-    
+
     axios.get(`http://localhost:3000/album?id=${albumId}`)
       .then((res => {
-        console.log(res);
+        // console.log(res);
         setSongAvatar(res.data.album.picUrl);
         setSongArtist(res.data.album.artist.name);
       }))
@@ -166,17 +179,31 @@ const Home = () => {
     music.current.src = getPlayMusicUrl(songId);
     music.current.play();
     playMusic();
+
+    // 检索当前歌曲在歌曲列表中的位置
+    for (let i = 0; i < songPlayStack.length; i++) {
+      if (songId === songPlayStack[i].songId) {
+        console.log('[ 位置i ] >', i);
+        setSongIndex(i);
+      }
+    }
+
+  }
+
+  // 播放完成时把进度调回开始的位置
+  const audioEnded = () => {
+    playSlider.current.style.width = 0;
+    playDot.current.style.marginLeft = 0;
+    playMusic();
   }
 
   // 点击添加到播放列表
   const addPlayListBtn = async (item, e) => {
-    // 需要专辑ID，歌曲ID， 歌曲时长dt，歌曲歌词，歌曲名称
     e.preventDefault();
-    // console.log('添加',item);
     let albumId = item.al.id;
     let songName = item.name;
     let songId = item.id;
-    let duration = transTime((Math.floor(item.dt/1000)));
+    let duration = transTime((Math.floor(item.dt / 1000)));
     let artistName = '';
     await axios.get(`http://localhost:3000/album?id=${albumId}`)
       .then((res => {
@@ -185,7 +212,7 @@ const Home = () => {
       .catch((err => {
         console.log(err);
       }))
-    let params = { "artist": artistName, "songName": songName, "songId": songId, "duration": duration , "albumId":albumId};
+    let params = { "artist": artistName, "songName": songName, "songId": songId, "duration": duration, "albumId": albumId };
     let songStack = songPlayStack;
     songStack.push(params);
     let result = [];
@@ -229,6 +256,96 @@ const Home = () => {
     console.log(item);
   }
 
+  // 点击进度条
+  const onSliderClick = (e) => {
+    setProcess(e, 'click');
+  }
+  // 进度条 MouseDown
+  const handleMouseDown = (e) => {
+    // 禁止默认的选中事件（避免鼠标拖拽进度点的时候选中文字）
+    if (e.preventDefault) {
+      e.preventDefault();
+    } else {
+      e.returnValue = false;
+    }
+
+    setProcessCanMove(true);
+  }
+
+  // 进度条 MouseMove  
+  const handleMouseMove = (e) => {
+    if (processCanMove) {
+      setProcess(e, 'dragMove');
+    }
+  }
+
+  // 进度条 MouseUp
+  const handleMouseUp = (e) => {
+    /* 这里的判断是关键，一定要判断是处于processItemMove=true的状态，
+      表示当前正在拖动进度条，不然会导致mouseUp和onClick事件的传播问题*/
+    if (processCanMove) {
+      setProcess(e, 'dragEnd');
+      // 松开后设置禁止拖动的状态
+      setProcessCanMove(false);
+    }
+  }
+
+  // 设置进度条
+  const setProcess = (e, type) => {
+    /*pageX：当前点击处距离DOM文档左侧x轴的距离 
+      获取当前点击偏移宽度*/
+    let offsetWidth = e.pageX - playSlider.current.getBoundingClientRect().left;
+    // 限制拖动范围，不能超出左右边界
+    if (offsetWidth < 0) {
+      offsetWidth = 0;
+    }
+    if (offsetWidth > playLine.current.offsetWidth) {
+      offsetWidth = playLine.current.offsetWidth;
+    }
+    // 计算偏移比例
+    const offsetPercent = offsetWidth / playLine.current.offsetWidth;
+    // 计算当前时间
+    const currentTime = music.current.duration * offsetPercent;
+    if (type === 'click' || type === 'dragMove') {
+      playSlider.current.style.width = offsetPercent * 100 + '%';
+      playDot.current.style.marginLeft = offsetPercent * 100 + '%';
+      // currentTime：（Audio 对象属性）设置或返回音频中的当前播放位置（以秒计）
+      music.current.currentTime = currentTime;
+    }
+    /*设置当前音乐进度，拖拽不需要及时计算播放进度，会导致音乐像快进一样的效果，体验很差，
+      而点击进度条是需要及时设置当前播放进度的*/
+    if (type === 'dragEnd' || type === 'click') {
+      music.current.currentTime = currentTime;
+    }
+
+
+  }
+
+  // 上/下一首歌曲
+  const onLastMusic = () => {
+    console.log(songPlayStack);
+    if (songPlayStack.length) {
+      // console.log("有歌曲");
+      let index = songIndex - 1;
+      console.log(index);
+      if (index === 0) {
+        index = songPlayStack.length - 1;
+      }
+      // console.log('aaaaaaaaa',songPlayStack[index]);
+      music.current.pause();
+      music.current.src = '';
+      console.log(getPlayMusicUrl(songPlayStack[index].songId))
+      music.current.src = getPlayMusicUrl(songPlayStack[index].songId);
+      music.current.play();
+      // playMusic();
+    } else {
+      console.log("没有歌曲");
+    }
+  }
+
+  const onNextMusic = () => {
+  }
+
   return (
     <>
       <Nav />
@@ -253,7 +370,7 @@ const Home = () => {
 
       </div>
 
-      <div style={{ width: "50%", height: '1200px', border: '1px solid black', display: "flex", justifyContent: 'center', margin: "0 auto", minWidth: "960px" }}>
+      <div style={{ width: "50%", height: '1200px', display: "flex", justifyContent: 'center', margin: "0 auto", minWidth: "960px" }}>
         {/* 左侧区域 */}
         <div style={{ width: '75%', border: "1px solid black", height: '1200px' }}>
           <div style={{ borderBottom: "3px solid #C10D0C", marginLeft: "10px", display: "flex", justifyContent: "start", alignItems: "center", height: "35px" }}>
@@ -271,7 +388,7 @@ const Home = () => {
             </span>
           </div>
 
-          <div style={{ border: '1px solid red', height: '500px' }}>
+          <div style={{ height: '500px' }}>
             <ul style={{ padding: "0 0" }}>
               {songList.map((item, index) => {
                 return (
@@ -292,7 +409,6 @@ const Home = () => {
               })}
             </ul>
           </div>
-
 
           {/* 榜单 */}
           <div className="billboard">
@@ -420,29 +536,40 @@ const Home = () => {
 
         </div>
 
+        {/* 右侧区域 */}
         <div style={{ width: '25%', height: '1200px', border: "1px solid black" }}>
-          测试测试
+          <div className="user-profile">
+            <p>登录网易云音乐，可以享受无限收藏的乐趣，并且无限同步到手机</p>
+            {/* <button >用户登录<Login /></button>           */}
+            <Login loginText={'用户登录'} />
+          </div>
         </div>
 
       </div>
 
       {/* 底部播放器 */}
-      <div style={{ height: "53px", backgroundColor: "#262626", position: "fixed", left: "0px", bottom: "0px", width: "100%", zIndex: "9999" }}>
+      <div style={{ height: "53px", backgroundColor: "#262626", position: "fixed", left: "0px", bottom: "0px", width: "100%", zIndex: "9999" }}
+        onMouseMove={(e) => handleMouseMove(e)} 
+        onMouseUp={(e) => handleMouseUp(e)}
+        onMouseLeave={(e) => handleMouseUp(e)}
+      >
         <audio preload="auto" ref={music}></audio>
         <div style={{ width: "50%", height: "53px", margin: "10px auto", display: 'flex', position: 'relative' }}>
 
           <div className='btns' style={{ height: '36px', width: '137px' }}>
-            <LeftCircleOutlined style={{ fontSize: "28px", padding: '0 6px', color: 'white' }} />
+            <LeftCircleOutlined style={{ fontSize: "28px", padding: '0 6px', color: 'white' }} onClick={onLastMusic} />
             <PlayCircleOutlined style={{ fontSize: "36px", padding: '0 6px', color: 'white' }} onClick={playMusic} ref={playIcon} />
             <PauseCircleOutlined style={{ fontSize: "36px", padding: '0 6px', color: 'white', display: 'none' }} onClick={pauseMusic} ref={pauseIcon} />
-            <RightCircleOutlined style={{ fontSize: "28px", padding: '0 6px', color: 'white' }} />
+            <RightCircleOutlined style={{ fontSize: "28px", padding: '0 6px', color: 'white' }} onClick={onNextMusic} />
           </div>
 
           <div style={{ width: "35px", height: "35px", border: '1px solid black', margin: '0 15px 0 15px' }}>
             <img src={songAvatar} alt="" width="35px" height="35px" />
           </div>
 
-          <div className="play" style={{ width: '60%' }}>
+          <div className="play" 
+            style={{ width: '60%' }}
+          >
             <div className="word">
               <a href="/#" title={songName} style={{ fontSize: "12px", color: "#E8E8E8", marginRight: '10px' }}>{songName}</a>
               <span title={songArtist}>
@@ -456,21 +583,16 @@ const Home = () => {
               {/* 进度条的总长度 */}
               <span
                 className="lineWrap"
-                // onMouseMove={handleMouseMove}
-                // onMouseUp={handleMouseUp}
-                // onMouseLeave={handleMouseUp}
-                // onClick={clcikLine}
+                onClick={onSliderClick}
                 ref={playLine}
-                style={{ width: '85%', height: '10px', backgroundColor: '#535353', display: 'inline-block', cursor: 'pointer', position: 'relative', border: '1px solid #535353', borderRadius: '25px' }}
               >
                 {/* 中间的滑块 */}
-                <span className="lineInner" ref={playSlider} style={{ left: '-3px', height: '100%', display: 'inline-block', backgroundColor: '#C30C0C', position: 'absolute', border: '1px solid #C30C0C', borderRadius: '25px' }}>
+                <span className="lineInner" ref={playSlider} >
                   {/* 可拖拽的圆点 */}
                   <span
                     className="lineDot"
-                    // onMouseDown={handleMouseDown}
+                    onMouseDown={(e) => handleMouseDown(e)}
                     ref={playDot}
-                    style={{ top: '-5px', right: '-12px', width: '15px', height: '15px', backgroundColor: '#FFFFFF', border: '1px solid #fff', borderRadius: '50%', position: 'absolute', }}
                   />
                 </span>
               </span>
@@ -482,7 +604,6 @@ const Home = () => {
               </span>
             </div>
           </div>
-
 
           <div className="play-bar-right" style={{ width: '113px', height: '36px', backgroundColor: 'white', position: 'absolute', right: '0' }}>
 
@@ -498,9 +619,7 @@ const Home = () => {
 
           {/* 弹出 播放列表 */}
           <div className="list" ref={playList}>
-
             <div className="listhd">
-
               <div className="list-hd-left">
 
                 <h4 style={{ color: '#BDBAB6', marginLeft: '30px', lineHeight: '40px' }}>
@@ -509,7 +628,7 @@ const Home = () => {
 
                 <div className="list-hd-left-two">
                   <a href="/#">收藏全部</a>
-                  <a href="/#" onClick={(e) =>onCLearPlayList(e)}>清除</a>
+                  <a href="/#" onClick={(e) => onCLearPlayList(e)}>清除</a>
                 </div>
               </div>
 
@@ -519,46 +638,44 @@ const Home = () => {
                   <CloseOutlined />
                 </span>
               </div>
-
-
             </div>
 
             <div className="song-play-list">
               {/* <div className="listbd"> */}
-                <div className="list-left">
-                  <ul>
-                    {
-                      songPlayStack.map((item, index) => {
-                        // console.log(item);
-                        return (
-                          <li className="song-line" key={item.songId}>
-                            {/* 播放图标 */}
-                            <div style={{ width: '20px', height: "28px" }}></div>
-                            <div style={{ width: "256px", height: '28px', lineHeight: '28px',color:'#DCDAD7',fontSize:'12px'}} onClick={(e) =>playBtn(item, e, 2)}>
-                              {item.songName}
-                            </div>
-                            <div style={{ width: '88px', height: '28px', lineHeight: '28px' }}>
-                              {/* #E2E2E2 */} 
-                              <i title="删除" className="stack-fun"><DeleteOutlined onClick={() => onDeleteSong(item)}/></i>
-                              <i title="下载" className="stack-fun"><DownloadOutlined /></i>
-                              <i title="分享" className="stack-fun"><ShareAltOutlined /></i>
-                              <i title="收藏" className="stack-fun"><FolderAddOutlined /></i>
-                            </div>
+              <div className="list-left">
+                <ul>
+                  {
+                    songPlayStack.map((item, index) => {
+                      // console.log(item);
+                      return (
+                        <li className="song-line" key={item.songId}>
+                          {/* 播放图标 */}
+                          <div style={{ width: '20px', height: "28px" }}></div>
+                          <div style={{ width: "256px", height: '28px', lineHeight: '28px', color: '#DCDAD7', fontSize: '12px' }} onClick={(e) => playBtn(item, e, 2)}>
+                            {item.songName}
+                          </div>
+                          <div style={{ width: '88px', height: '28px', lineHeight: '28px' }}>
+                            {/* #E2E2E2 */}
+                            <i title="删除" className="stack-fun"><DeleteOutlined onClick={() => onDeleteSong(item)} /></i>
+                            <i title="下载" className="stack-fun"><DownloadOutlined /></i>
+                            <i title="分享" className="stack-fun"><ShareAltOutlined /></i>
+                            <i title="收藏" className="stack-fun"><FolderAddOutlined /></i>
+                          </div>
 
-                            <div style={{ width: '70px', height: '28px', marginLeft: '10px', lineHeight: '28px' }}>
-                              <span title={item.artist}>
-                                <a href="/#" style={{ fontSize: '12px', color: '#969087' }}>{item.artist}</a>
-                              </span>
-                            </div>
-                            <div style={{ width: '35px', height: '28px', lineHeight: '28px', marginLeft: '10px',color: '#969087' }}>
-                              {item.duration}
-                            </div>
-                          </li>
-                        )
-                      })
-                    }
-                  </ul>
-                </div>
+                          <div style={{ width: '70px', height: '28px', marginLeft: '10px', lineHeight: '28px' }}>
+                            <span title={item.artist}>
+                              <a href="/#" style={{ fontSize: '12px', color: '#969087', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.artist}</a>
+                            </span>
+                          </div>
+                          <div style={{ width: '35px', height: '28px', lineHeight: '28px', marginLeft: '10px', color: '#969087' }}>
+                            {item.duration}
+                          </div>
+                        </li>
+                      )
+                    })
+                  }
+                </ul>
+              </div>
               {/* </div> */}
 
               <div className="list-bd-right">

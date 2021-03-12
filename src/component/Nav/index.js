@@ -15,7 +15,9 @@ const Nav = () => {
         <Menu.Item key="4">商城</Menu.Item>
         <Menu.Item key="5">音乐人</Menu.Item>
         <Menu.Item key="6">下载客户端</Menu.Item>
-        <Menu.Item key="7"> <Login /> </Menu.Item>
+        <Menu.Item key="7">
+          <Login loginText={'登录'}/> 
+        </Menu.Item>
       </Menu>
     </>
   )

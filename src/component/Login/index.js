@@ -8,7 +8,7 @@ import Cookies from 'js-cookie';
 
 
 
-const Login = () => {
+const Login = (props) => {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const avatarImage = useRef(null);
@@ -113,9 +113,13 @@ const Login = () => {
   return (
     <>
       <div >
-        <Button type="primary" onClick={showModal} ref={loginText}>
+        {/* <Button type="primary" onClick={showModal} ref={loginText}>
           <span >登录</span>
-        </Button>
+        </Button> */}
+
+        <button onClick={showModal} ref={loginText} className="login">
+          <span >{props.loginText}</span>
+        </button>
 
         <Popover content={content} color={'rgb(60, 65, 68)'}>
           <img ref={avatarImage} style={{ width: '30px', height: '30px', borderRadius: '50%', display: 'none' }} alt='头像' />
