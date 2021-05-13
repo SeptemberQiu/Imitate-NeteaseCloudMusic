@@ -24,7 +24,6 @@ const Home = () => {
   const [songPlayStack, setSongPlayStack] = useState([]);
   const [songPlayListStatus, setSongPlayListStatus] = useState(true);
   const [songIndex, setSongIndex] = useState();
-  const [drag, setDrag] = useState(false);
   const [processCanMove, setProcessCanMove] = useState(false);
   // eslint-disable-next-line
   // const [percent, setPercent] = useState(0);
@@ -94,10 +93,6 @@ const Home = () => {
     playIcon.current.style.display = 'none';
     pauseIcon.current.style.display = '';
     music.current.addEventListener('timeupdate', updateProgress, false);
-    // music.current.onended = () => {
-    //   alert("歌曲结束");
-    // }
-
     // 监听播放完成事件
     music.current.addEventListener('ended', audioEnded, false);
   }
@@ -109,7 +104,6 @@ const Home = () => {
   }
 
   const updateProgress = () => {
-    // console.log(music.current.duration);
     let dura = transTime(Math.floor(music.current.duration));
     setDuration(dura);
     let value = music.current.currentTime / music.current.duration;
@@ -180,13 +174,16 @@ const Home = () => {
     music.current.play();
     playMusic();
 
+    // console.log(songId);
+    setSongIndex(songId);
+
     // 检索当前歌曲在歌曲列表中的位置
-    for (let i = 0; i < songPlayStack.length; i++) {
-      if (songId === songPlayStack[i].songId) {
-        console.log('[ 位置i ] >', i);
-        setSongIndex(i);
-      }
-    }
+    // for (let i = 0; i < songPlayStack.length; i++) {
+    //   if (songId === songPlayStack[i].songId) {
+    //     console.log('[ 位置i ] >', i);
+    //     setSongIndex(i);
+    //   }
+    // }
 
   }
 
@@ -260,6 +257,7 @@ const Home = () => {
   const onSliderClick = (e) => {
     setProcess(e, 'click');
   }
+
   // 进度条 MouseDown
   const handleMouseDown = (e) => {
     // 禁止默认的选中事件（避免鼠标拖拽进度点的时候选中文字）
@@ -268,7 +266,6 @@ const Home = () => {
     } else {
       e.returnValue = false;
     }
-
     setProcessCanMove(true);
   }
 
@@ -285,7 +282,7 @@ const Home = () => {
       表示当前正在拖动进度条，不然会导致mouseUp和onClick事件的传播问题*/
     if (processCanMove) {
       setProcess(e, 'dragEnd');
-      // 松开后设置禁止拖动的状态
+      // 松开后设置禁止拖动的状态 
       setProcessCanMove(false);
     }
   }
@@ -294,6 +291,7 @@ const Home = () => {
   const setProcess = (e, type) => {
     /*pageX：当前点击处距离DOM文档左侧x轴的距离 
       获取当前点击偏移宽度*/
+    console.log(playLine.current.offsetWidth);
     let offsetWidth = e.pageX - playSlider.current.getBoundingClientRect().left;
     // 限制拖动范围，不能超出左右边界
     if (offsetWidth < 0) {
@@ -305,45 +303,117 @@ const Home = () => {
     // 计算偏移比例
     const offsetPercent = offsetWidth / playLine.current.offsetWidth;
     // 计算当前时间
-    const currentTime = music.current.duration * offsetPercent;
+    const nowTime = music.current.duration * offsetPercent;
     if (type === 'click' || type === 'dragMove') {
       playSlider.current.style.width = offsetPercent * 100 + '%';
       playDot.current.style.marginLeft = offsetPercent * 100 + '%';
       // currentTime：（Audio 对象属性）设置或返回音频中的当前播放位置（以秒计）
-      music.current.currentTime = currentTime;
+      music.current.currentTime = nowTime;
     }
-    /*设置当前音乐进度，拖拽不需要及时计算播放进度，会导致音乐像快进一样的效果，体验很差，
+    /*设置当前音乐进度，拖拽不需要及时计算播放进度，会导致音乐像快进一样的效果，体验很差   
       而点击进度条是需要及时设置当前播放进度的*/
     if (type === 'dragEnd' || type === 'click') {
-      music.current.currentTime = currentTime;
+      music.current.currentTime = nowTime;
     }
-
-
   }
 
   // 上/下一首歌曲
   const onLastMusic = () => {
-    console.log(songPlayStack);
+    // 当前音乐
+    // console.log("当前歌曲ID", songIndex);
     if (songPlayStack.length) {
-      // console.log("有歌曲");
-      let index = songIndex - 1;
-      console.log(index);
-      if (index === 0) {
-        index = songPlayStack.length - 1;
+      // 获取到当前歌曲在列表中的位置
+      for (let index in songPlayStack) {
+        if (songPlayStack[index].songId === songIndex) {
+          // 当前歌曲所在位置
+          // console.log("当前歌曲所在位置", index);
+          // 如果前一首索引为0，为最后一首
+          let preIndex = index - 1;
+          if (preIndex < 0) {
+            let lastIndex = songPlayStack.length - 1;
+            music.current.src = getPlayMusicUrl(songPlayStack[lastIndex].songId);
+            axios.get(`http://localhost:3000/album?id=${songPlayStack[lastIndex].albumId}`)
+              .then((res => {
+                setSongAvatar(res.data.album.picUrl);
+                setSongArtist(res.data.album.artist.name);
+              }))
+              .catch((err => {
+                console.log(err);
+              }))
+            setSongName(songPlayStack[lastIndex].songName);
+            setSongIndex(songPlayStack[lastIndex].songId);
+            music.current.play();
+            playMusic();
+
+          } else {
+
+            music.current.src = getPlayMusicUrl(songPlayStack[preIndex].songId);
+            axios.get(`http://localhost:3000/album?id=${songPlayStack[preIndex].albumId}`)
+              .then((res => {
+                setSongAvatar(res.data.album.picUrl);
+                setSongArtist(res.data.album.artist.name);
+              }))
+              .catch((err => {
+                console.log(err);
+              }))
+            setSongName(songPlayStack[preIndex].songName);
+            setSongIndex(songPlayStack[preIndex].songId);
+            music.current.play();
+            playMusic();
+          }
+        }
       }
-      // console.log('aaaaaaaaa',songPlayStack[index]);
-      music.current.pause();
-      music.current.src = '';
-      console.log(getPlayMusicUrl(songPlayStack[index].songId))
-      music.current.src = getPlayMusicUrl(songPlayStack[index].songId);
-      music.current.play();
-      // playMusic();
     } else {
       console.log("没有歌曲");
     }
   }
 
+  // 下一首
   const onNextMusic = () => {
+    if (songPlayStack.length) {
+      // 获取到当前歌曲在列表中的位置   
+      for (let index in songPlayStack) {
+        if (songPlayStack[index].songId === songIndex) {
+          // 当前歌曲所在位置
+          // 如果后一首索引为 列表数组长度-1 ，为第一首
+          let nextIndex = parseInt(index) + 1;
+          if (nextIndex > songPlayStack.length - 1) {
+            let firstIndex = 0;
+            music.current.src = getPlayMusicUrl(songPlayStack[firstIndex].songId);
+            axios.get(`http://localhost:3000/album?id=${songPlayStack[firstIndex].albumId}`)
+              .then((res => {
+                setSongAvatar(res.data.album.picUrl);
+                setSongArtist(res.data.album.artist.name);
+              }))
+              .catch((err => {
+                console.log(err);
+              }))
+            setSongName(songPlayStack[firstIndex].songName);
+            setSongIndex(songPlayStack[firstIndex].songId);
+            music.current.play();
+            playMusic();
+
+          } else {
+
+            music.current.src = getPlayMusicUrl(songPlayStack[nextIndex].songId);
+            axios.get(`http://localhost:3000/album?id=${songPlayStack[nextIndex].albumId}`)
+              .then((res => {
+                setSongAvatar(res.data.album.picUrl);
+                setSongArtist(res.data.album.artist.name);
+              }))
+              .catch((err => {
+                console.log(err);
+              }))
+            setSongName(songPlayStack[nextIndex].songName);
+            setSongIndex(songPlayStack[nextIndex].songId);
+            music.current.play();
+            playMusic();
+          }
+        }
+      }
+    } else {
+      console.log("没有歌曲");
+    }
   }
 
   return (
@@ -549,7 +619,7 @@ const Home = () => {
 
       {/* 底部播放器 */}
       <div style={{ height: "53px", backgroundColor: "#262626", position: "fixed", left: "0px", bottom: "0px", width: "100%", zIndex: "9999" }}
-        onMouseMove={(e) => handleMouseMove(e)} 
+        onMouseMove={(e) => handleMouseMove(e)}
         onMouseUp={(e) => handleMouseUp(e)}
         onMouseLeave={(e) => handleMouseUp(e)}
       >
@@ -567,7 +637,7 @@ const Home = () => {
             <img src={songAvatar} alt="" width="35px" height="35px" />
           </div>
 
-          <div className="play" 
+          <div className="play"
             style={{ width: '60%' }}
           >
             <div className="word">
